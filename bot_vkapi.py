@@ -15,7 +15,12 @@ import sqlite3
 import time
 
 # ========== КОНФИГУРАЦИЯ ==========
-TELEGRAM_TOKEN = "8367243879:AAGm-PnvwT5Zp9Axd9UPYtzieDlERoHFHuw"  # ⚠️ ЗАМЕНИТЕ НА СВОЙ ТОКЕН
+import os
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TELEGRAM_TOKEN:
+    print("❌ Ошибка: TELEGRAM_TOKEN не найден!")
+    exit(1)
+
 SMMLABA_SERVICE_CODE = "vklikebest3"
 SMMLABA_API_URL = "https://smmlaba.com/vkapi/v1/"
 SMMLABA_COUNT = 23
