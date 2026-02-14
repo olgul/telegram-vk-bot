@@ -349,7 +349,8 @@ def get_settings_menu_keyboard():
     """Меню настроек"""
     keyboard = [
         ["🔐 Smmlaba", "📱 Добавить ВК токен"],
-        ["💰 Баланс", "🏠 Назад"],
+        ["💰 Баланс", "🗑️ Удалить аккаунт"],  # ← Добавляем новую кнопку
+        ["🏠 Назад"],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -626,6 +627,67 @@ async def add_vk(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status.edit_text(f"❌ Ошибка при сохранении в базу:\n{e}")
     finally:
         conn.close()
+# ========== УДАЛЕНИЕ ВК АККАУНТА ==========
+
+async def delete_vk_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Удаляет ВК аккаунт пользователя.
+    Формат: /delete_vk VK_ID
+    Пример: /delete_vk id123456789
+    """
+    user_id = update.effective_user.id
+    
+    # Проверяем, что передан аргумент (VK_ID)
+    if len(context.args) < 1:
+        help_text = (
+            "❌ Неправильный формат!\\n\\n"
+            "Используйте: /delete_vk VK_ID\\n\\n"
+            "VK_ID — это ID или короткое имя страницы/группы ВК:\\n"
+            " • id123456789 — для личной страницы\\n"
+            " • club123456789 — для группы\\n\\n"
+            "Пример команды:\\n"
+            "/delete_vk id123456789"
+        )
+        await update.message.reply_text(help_text)
+        return
+    
+    # Берём первый аргумент как VK_ID
+    vk_input = context.args[0].strip().lower()
+    
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Ищем такой аккаунт у этого пользователя
+    cursor.execute(
+        "SELECT id, vk_input FROM vk_accounts WHERE user_id=? AND vk_input=?",
+        (user_id, vk_input)
+    )
+    
+    account = cursor.fetchone()
+    
+    if not account:
+        conn.close()
+        await update.message.reply_text(
+            f"❌ Аккаунт '{vk_input}' не найден!\\n\\n"
+            f"Используйте /list чтобы посмотреть все аккаунты"
+        )
+        return
+    
+    # Удаляем аккаунт из базы данных
+    try:
+        cursor.execute("DELETE FROM vk_accounts WHERE id=?", (account[0],))
+        conn.commit()
+        
+        await update.message.reply_text(
+            f"✅ Аккаунт '{vk_input}' успешно удалён!\\n\\n"
+            f"Вы всё ещё можете добавить до 10 аккаунтов.\\n"
+            f"Используйте: /add_vk VK_ID VK_TOKEN"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка при удалении:\\n{e}")
+    finally:
+        conn.close()
 
 async def list_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает список добавленных ВК-аккаунтов"""
@@ -792,6 +854,16 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_smmlaba_info(update, context)
     elif text == "🏠 Назад":
         await start(update, context)
+    elif text == "🗑️ Удалить аккаунт":
+    await update.message.reply_text(
+        "🗑️ УДАЛИТЬ ВК АККАУНТ\\n\\n"
+        "Используйте команду:\\n"
+        "/delete_vk VK_ID\\n\\n"
+        "Примеры:\\n"
+        "/delete_vk id123456789\\n"
+        "/delete_vk club12345678\\n\\n"
+        "Используйте /list чтобы посмотреть все ваши аккаунты"
+    )
     else:
         await update.message.reply_text(
             "👋 Пожалуйста, используйте кнопки меню или команды.",
@@ -813,6 +885,7 @@ def main():
     app.add_handler(CommandHandler("set_smmlaba", set_smmlaba_credentials))
     app.add_handler(CommandHandler("my_smmlaba", show_smmlaba_info))
     app.add_handler(CommandHandler("add_vk", add_vk))
+    app.add_handler(CommandHandler("delete_vk", delete_vk_account))
     app.add_handler(CommandHandler("list", list_accounts))
     app.add_handler(CommandHandler("check", check_posts))
 
